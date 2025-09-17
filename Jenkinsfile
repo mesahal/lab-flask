@@ -20,16 +20,34 @@ pipeline {
                 sh '''
                     echo "Checking required files exist..."
                     
-                    required_files=("app.py" "Dockerfile" "docker-compose.yml" "nginx.conf")
+                    # Check each file individually
+                    if [ -f "app.py" ]; then
+                        echo "✅ app.py found"
+                    else
+                        echo "❌ app.py not found"
+                        exit 1
+                    fi
                     
-                    for file in "${required_files[@]}"; do
-                        if [ -f "$file" ]; then
-                            echo "✅ $file found"
-                        else
-                            echo "❌ $file not found"
-                            exit 1
-                        fi
-                    done
+                    if [ -f "Dockerfile" ]; then
+                        echo "✅ Dockerfile found"
+                    else
+                        echo "❌ Dockerfile not found"
+                        exit 1
+                    fi
+                    
+                    if [ -f "docker-compose.yml" ]; then
+                        echo "✅ docker-compose.yml found"
+                    else
+                        echo "❌ docker-compose.yml not found"
+                        exit 1
+                    fi
+                    
+                    if [ -f "nginx.conf" ]; then
+                        echo "✅ nginx.conf found"
+                    else
+                        echo "❌ nginx.conf not found"
+                        exit 1
+                    fi
                     
                     echo "All required files present!"
                 '''
