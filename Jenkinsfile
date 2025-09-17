@@ -77,7 +77,7 @@ pipeline {
         
         stage('Build Docker Image') {
             steps {
-                echo '🐳 Building Docker image from project files...'
+                echo '�� Building Docker image from project files...'
                 sh '''
                     echo "Building image: lab-flask-app:${BUILD_NUMBER}"
                     echo "Using files from current directory:"
@@ -164,7 +164,7 @@ pipeline {
     
     post {
         always {
-            echo '🏁 Pipeline completed!'
+            echo '�� Pipeline completed!'
         }
         success {
             echo '🎊 SUCCESS: Flask app deployed successfully!'
