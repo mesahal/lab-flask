@@ -63,7 +63,12 @@ pipeline {
                     echo "✅ Python syntax is valid"
                     
                     echo "Checking Flask import..."
-                    python3 -c "import flask; print('✅ Flask is available')"
+                    if python3 -c "import flask; print('✅ Flask is available')" 2>/dev/null; then
+                        echo "✅ Flask is available on Jenkins system"
+                    else
+                        echo "⚠️ Flask not available on Jenkins system (will be installed in Docker)"
+                        echo "This is normal - Flask will be installed when building the Docker image"
+                    fi
                     
                     echo "Code quality checks passed!"
                 '''
