@@ -3,16 +3,21 @@ pipeline {
     agent any
     
     stages {
-        stage('Checkout Code') {
+        stage('Prepare Workspace') {
             steps {
-                echo '📁 Checking out code from Git repository...'
+                echo '📁 Preparing workspace with project files...'
                 sh '''
                     echo "Current directory: $(pwd)"
-                    echo "Listing project files:"
-                    ls -la
+                    echo "Copying project files from local directory..."
                     
-                    echo "Project structure:"
-                    find . -type f -name "*.py" -o -name "*.yml" -o -name "*.conf" -o -name "Dockerfile" | head -10
+                    # Copy all project files to workspace
+                    cp /home/sahal/cicd-demo/lab-flask/app.py . 2>/dev/null || echo "app.py not found"
+                    cp /home/sahal/cicd-demo/lab-flask/Dockerfile . 2>/dev/null || echo "Dockerfile not found"
+                    cp /home/sahal/cicd-demo/lab-flask/docker-compose.yml . 2>/dev/null || echo "docker-compose.yml not found"
+                    cp /home/sahal/cicd-demo/lab-flask/nginx.conf . 2>/dev/null || echo "nginx.conf not found"
+                    
+                    echo "Project files copied to workspace:"
+                    ls -la
                 '''
             }
         }

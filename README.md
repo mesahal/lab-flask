@@ -16,19 +16,24 @@
 - **Use when**: First time learning Jenkins pipelines
 - **Jenkins setup**: Copy this script into a new Pipeline job
 
-#### 2. **`02-production-pipeline.groovy`** - Level 2: Production Pipeline
-- **Purpose**: Learn how to build from actual project files
+#### 2. **`02-production-pipeline.groovy`** - Level 2: Manual Pipeline
+- **Purpose**: Learn how to build from actual project files (manual approach)
 - **What it does**: 
+  - Copies files from local directory to workspace
   - Validates project structure
   - Builds Docker image from your files
   - Tests and deploys the application
-- **Use when**: You want to build from real project files
+- **Use when**: You want to manually copy files and build
 - **Jenkins setup**: Copy this script into a new Pipeline job
 
 #### 3. **`Jenkinsfile`** - Level 3: Git-Based Pipeline
 - **Purpose**: Standard way to define pipelines in Git repositories
-- **What it does**: Same as production pipeline but uses Git integration
-- **Use when**: Working with Git repositories
+- **What it does**: 
+  - Assumes Jenkins automatically checks out code from Git
+  - Validates project structure
+  - Builds Docker image from your files
+  - Tests and deploys the application
+- **Use when**: Working with Git repositories (automatic checkout)
 - **Jenkins setup**: Create Pipeline job with "Pipeline script from SCM" and point to this directory
 
 ## 🚀 Learning Path
