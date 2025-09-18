@@ -4,7 +4,7 @@ pipeline {
     
     environment {
         // Harbor Registry Configuration
-        HARBOR_URL = 'harbor.devops.com'
+        HARBOR_URL = 'localhost:8083'
         HARBOR_PROJECT = 'library'
         HARBOR_IMAGE = 'flask-app'
         HARBOR_USERNAME = 'admin'
