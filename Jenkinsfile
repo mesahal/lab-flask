@@ -1,6 +1,22 @@
-// Jenkinsfile - This is the standard way to define pipelines in Git repositories
+// Enhanced Jenkinsfile with Harbor Registry and GitLab Integration
 pipeline {
     agent any
+    
+    environment {
+        // Harbor Registry Configuration
+        HARBOR_URL = 'harbor.devops.com'
+        HARBOR_PROJECT = 'library'
+        HARBOR_IMAGE = 'flask-app'
+        HARBOR_USERNAME = 'admin'
+        HARBOR_PASSWORD = 'Harbor12345'
+        
+        // GitLab Configuration
+        GITLAB_URL = 'http://gitlab.devops.com:8082'
+        
+        // Docker Configuration
+        DOCKER_IMAGE = "${HARBOR_URL}/${HARBOR_PROJECT}/${HARBOR_IMAGE}"
+        DOCKER_TAG = "${BUILD_NUMBER}"
+    }
     
     stages {
         stage('Checkout Code') {
@@ -10,6 +26,8 @@ pipeline {
                     echo "Current directory: $(pwd)"
                     echo "Project files:"
                     ls -la
+                    echo "Git remote:"
+                    git remote -v
                 '''
             }
         }
@@ -77,17 +95,12 @@ pipeline {
         
         stage('Build Docker Image') {
             steps {
-                echo '�� Building Docker image from project files...'
+                echo '🐳 Building Docker image...'
                 sh '''
-                    echo "Building image: lab-flask-app:${BUILD_NUMBER}"
-                    echo "Using files from current directory:"
-                    ls -la
-                    
-                    docker build -t lab-flask-app:${BUILD_NUMBER} .
-                    echo "✅ Docker image built successfully!"
-                    
-                    echo "Image details:"
-                    docker images | grep lab-flask-app
+                    echo "Building image: ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    docker build -t ${DOCKER_IMAGE}:latest .
+                    echo "✅ Docker image built successfully"
                 '''
             }
         }
@@ -96,9 +109,50 @@ pipeline {
             steps {
                 echo '🧪 Testing Docker image...'
                 sh '''
-                    echo "Testing if the image runs correctly..."
-                    docker run --rm lab-flask-app:${BUILD_NUMBER} python -c "print('✅ Flask app test passed!')"
-                    echo "✅ Image test completed successfully!"
+                    echo "Testing image locally..."
+                    docker run -d --name test-container -p 5001:5000 ${DOCKER_IMAGE}:${DOCKER_TAG}
+                    sleep 5
+                    
+                    echo "Testing HTTP response..."
+                    if curl -f http://localhost:5001 > /dev/null 2>&1; then
+                        echo "✅ Application is responding correctly"
+                    else
+                        echo "❌ Application is not responding"
+                        exit 1
+                    fi
+                    
+                    echo "Stopping test container..."
+                    docker stop test-container
+                    docker rm test-container
+                    echo "✅ Docker image test passed"
+                '''
+            }
+        }
+        
+        stage('Login to Harbor Registry') {
+            steps {
+                echo '🔐 Logging into Harbor Registry...'
+                sh '''
+                    echo "Logging into Harbor at ${HARBOR_URL}..."
+                    echo "${HARBOR_PASSWORD}" | docker login ${HARBOR_URL} -u ${HARBOR_USERNAME} --password-stdin
+                    echo "✅ Successfully logged into Harbor"
+                '''
+            }
+        }
+        
+        stage('Push to Harbor Registry') {
+            steps {
+                echo '📤 Pushing image to Harbor Registry...'
+                sh '''
+                    echo "Pushing image: ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                    docker push ${DOCKER_IMAGE}:latest
+                    echo "✅ Image pushed to Harbor successfully"
+                    
+                    echo "Harbor Registry URL: https://${HARBOR_URL}"
+                    echo "Project: ${HARBOR_PROJECT}"
+                    echo "Image: ${HARBOR_IMAGE}"
+                    echo "Tags: ${DOCKER_TAG}, latest"
                 '''
             }
         }
@@ -107,56 +161,67 @@ pipeline {
             steps {
                 echo '🛑 Stopping old containers...'
                 sh '''
-                    echo "Stopping any existing containers..."
+                    echo "Stopping any running containers..."
                     docker compose down || true
-                    echo "✅ Old containers stopped!"
+                    docker stop flask-app nginx-proxy || true
+                    docker rm flask-app nginx-proxy || true
+                    echo "✅ Old containers stopped"
                 '''
             }
         }
         
         stage('Deploy with Docker Compose') {
             steps {
-                echo '🚀 Deploying with Docker Compose...'
+                echo '🚀 Deploying application...'
                 sh '''
-                    echo "Starting services with Docker Compose..."
+                    echo "Starting application with Docker Compose..."
                     docker compose up -d
-                    
-                    echo "Waiting for services to start..."
-                    sleep 10
-                    
-                    echo "✅ Services started successfully!"
+                    echo "✅ Application deployed successfully"
                 '''
             }
         }
         
         stage('Test Application') {
             steps {
-                echo '🔍 Testing Flask application...'
+                echo '🧪 Testing deployed application...'
                 sh '''
-                    echo "Testing Flask app through Nginx proxy..."
-                    curl -f http://localhost:8000 || echo "App not ready yet, waiting..."
-                    sleep 5
-                    curl -f http://localhost:8000 && echo "✅ SUCCESS: Flask app is working through Nginx!"
+                    echo "Waiting for application to start..."
+                    sleep 10
+                    
+                    echo "Testing application endpoints..."
+                    if curl -f http://localhost:8000 > /dev/null 2>&1; then
+                        echo "✅ Application is accessible at http://localhost:8000"
+                    else
+                        echo "❌ Application is not accessible"
+                        exit 1
+                    fi
+                    
+                    echo "✅ Application test passed"
                 '''
             }
         }
         
         stage('Show Status') {
             steps {
-                echo '📋 Showing deployment status...'
+                echo '📊 Showing deployment status...'
                 sh '''
-                    echo "=== Running Containers ==="
+                    echo "=== Docker Containers ==="
                     docker ps
                     
+                    echo ""
                     echo "=== Docker Images ==="
-                    docker images | grep lab-flask-app || true
+                    docker images | grep flask-app
                     
-                    echo "=== Docker Compose Status ==="
-                    docker compose ps
+                    echo ""
+                    echo "=== Harbor Registry Images ==="
+                    docker images | grep ${HARBOR_URL}
                     
+                    echo ""
                     echo "=== Application URLs ==="
-                    echo "Flask app (direct): http://localhost:5000"
-                    echo "Flask app (via Nginx): http://localhost:8000"
+                    echo "🌐 Application: http://localhost:8000"
+                    echo "🐳 Harbor Registry: https://${HARBOR_URL}"
+                    echo "📝 GitLab: ${GITLAB_URL}"
+                    echo "🔧 Jenkins: http://localhost:8080"
                 '''
             }
         }
@@ -164,15 +229,23 @@ pipeline {
     
     post {
         always {
-            echo '�� Pipeline completed!'
+            echo '🧹 Cleaning up...'
+            sh '''
+                echo "Cleaning up temporary files..."
+                # Keep containers running for testing
+                echo "Containers are still running for testing"
+            '''
         }
         success {
-            echo '🎊 SUCCESS: Flask app deployed successfully!'
-            sh 'echo "Your Flask app is available at: http://localhost:8000"'
+            echo '✅ Pipeline completed successfully!'
+            echo '🎉 Your application is now deployed with Harbor Registry integration!'
         }
         failure {
-            echo '❌ FAILED: Deployment failed!'
-            sh 'echo "Cleaning up..." && docker compose down || true'
+            echo '❌ Pipeline failed!'
+            sh '''
+                echo "Cleaning up failed deployment..."
+                docker compose down || true
+            '''
         }
     }
 }
