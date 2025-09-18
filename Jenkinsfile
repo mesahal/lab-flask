@@ -1,20 +1,9 @@
-// Enhanced Jenkinsfile with Harbor Registry and GitLab Integration
+// Simplified Jenkinsfile without Harbor Registry
 pipeline {
     agent any
     
     environment {
-        // Harbor Registry Configuration
-        HARBOR_URL = 'localhost:8083'
-        HARBOR_PROJECT = 'library'
-        HARBOR_IMAGE = 'flask-app'
-        HARBOR_USERNAME = 'admin'
-        HARBOR_PASSWORD = 'Harbor12345'
-        
-        // GitLab Configuration
-        GITLAB_URL = 'http://gitlab.devops.com:8082'
-        
-        // Docker Configuration
-        DOCKER_IMAGE = "${HARBOR_URL}/${HARBOR_PROJECT}/${HARBOR_IMAGE}"
+        DOCKER_IMAGE = 'flask-app'
         DOCKER_TAG = "${BUILD_NUMBER}"
     }
     
@@ -26,8 +15,6 @@ pipeline {
                     echo "Current directory: $(pwd)"
                     echo "Project files:"
                     ls -la
-                    echo "Git remote:"
-                    git remote -v
                 '''
             }
         }
@@ -38,7 +25,6 @@ pipeline {
                 sh '''
                     echo "Checking required files exist..."
                     
-                    # Check each file individually
                     if [ -f "app.py" ]; then
                         echo "✅ app.py found"
                     else
@@ -129,47 +115,6 @@ pipeline {
             }
         }
         
-        stage('Login to Harbor Registry') {
-            steps {
-                echo '🔐 Logging into Harbor Registry...'
-                sh '''
-                    echo "Logging into Harbor at ${HARBOR_URL}..."
-                    echo "${HARBOR_PASSWORD}" | docker login ${HARBOR_URL} -u ${HARBOR_USERNAME} --password-stdin
-                    echo "✅ Successfully logged into Harbor"
-                '''
-            }
-        }
-        
-        stage('Push to Harbor Registry') {
-            steps {
-                echo '📤 Pushing image to Harbor Registry...'
-                sh '''
-                    echo "Pushing image: ${DOCKER_IMAGE}:${DOCKER_TAG}"
-                    docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
-                    docker push ${DOCKER_IMAGE}:latest
-                    echo "✅ Image pushed to Harbor successfully"
-                    
-                    echo "Harbor Registry URL: https://${HARBOR_URL}"
-                    echo "Project: ${HARBOR_PROJECT}"
-                    echo "Image: ${HARBOR_IMAGE}"
-                    echo "Tags: ${DOCKER_TAG}, latest"
-                '''
-            }
-        }
-        
-        stage('Stop Old Containers') {
-            steps {
-                echo '🛑 Stopping old containers...'
-                sh '''
-                    echo "Stopping any running containers..."
-                    docker compose down || true
-                    docker stop flask-app nginx-proxy || true
-                    docker rm flask-app nginx-proxy || true
-                    echo "✅ Old containers stopped"
-                '''
-            }
-        }
-        
         stage('Deploy with Docker Compose') {
             steps {
                 echo '🚀 Deploying application...'
@@ -213,15 +158,10 @@ pipeline {
                     docker images | grep flask-app
                     
                     echo ""
-                    echo "=== Harbor Registry Images ==="
-                    docker images | grep ${HARBOR_URL}
-                    
-                    echo ""
                     echo "=== Application URLs ==="
                     echo "🌐 Application: http://localhost:8000"
-                    echo "🐳 Harbor Registry: https://${HARBOR_URL}"
-                    echo "📝 GitLab: ${GITLAB_URL}"
                     echo "🔧 Jenkins: http://localhost:8080"
+                    echo "📝 GitLab: http://localhost:8082"
                 '''
             }
         }
@@ -232,13 +172,11 @@ pipeline {
             echo '🧹 Cleaning up...'
             sh '''
                 echo "Cleaning up temporary files..."
-                # Keep containers running for testing
-                echo "Containers are still running for testing"
             '''
         }
         success {
             echo '✅ Pipeline completed successfully!'
-            echo '🎉 Your application is now deployed with Harbor Registry integration!'
+            echo '🎉 Your application is now deployed!'
         }
         failure {
             echo '❌ Pipeline failed!'
