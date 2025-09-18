@@ -39,8 +39,8 @@ Gitleaks is a SAST tool for **detecting** and **preventing** hardcoded secrets l
     ░    gitleaks
 
 
-Finding:     "export BUNDLE_ENTERPRISE__CONTRIBSYS__COM=example-secret",
-Secret:      cafebabe:deadbeef
+Finding:     "export BUNDLE_ENTERPRISE__CONTRIBSYS__COM=EXAMPLE_SECRET",
+Secret:      EXAMPLE_SECRET
 RuleID:      sidekiq-secret
 Entropy:     2.609850
 File:        cmd/generate/config/rules/sidekiq.go
