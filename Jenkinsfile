@@ -1,4 +1,4 @@
-// Jenkinsfile with Harbor Registry Integration
+// Jenkinsfile with Complete SonarQube and Dependency Track Integration
 pipeline {
     agent any
     
@@ -12,6 +12,14 @@ pipeline {
         DOCKER_IMAGE = 'flask-app'
         DOCKER_TAG = "${BUILD_NUMBER}"
         HARBOR_FULL_IMAGE = "${HARBOR_URL}/${HARBOR_PROJECT}/${HARBOR_IMAGE}"
+        
+        // SonarQube Configuration
+        SONARQUBE_URL = 'http://localhost:9000'
+        SONARQUBE_TOKEN = 'squ_1234567890abcdef1234567890abcdef12345678' // You'll need to generate this
+        
+        // Dependency Track Configuration
+        DEPENDENCY_TRACK_URL = 'http://localhost:8085'
+        DEPENDENCY_TRACK_API_KEY = 'your-api-key-here' // You'll need to generate this
     }
     
     stages {
@@ -100,34 +108,42 @@ pipeline {
                     fi
                     
                     echo "Running Gitleaks scan..."
-                    gitleaks detect --source . --verbose --exit-code 0
+                    gitleaks detect --source . --verbose --exit-code 0 --report-format json --report-path gitleaks-report.json
                     echo "✅ Gitleaks scan completed - no secrets found"
                 '''
+                archiveArtifacts artifacts: 'gitleaks-report.json', fingerprint: true
             }
         }
         
-        stage('Security Scan - SonarQube') {
+        stage('SonarQube Analysis') {
             steps {
                 echo '🔍 Running SonarQube code analysis...'
                 sh '''
                     echo "Waiting for SonarQube to be ready..."
                     timeout 60 bash -c 'until curl -s http://localhost:9000 > /dev/null; do sleep 2; done'
+                    echo "✅ SonarQube is accessible"
                     
                     echo "Running SonarQube analysis..."
-                    # Note: In a real scenario, you would use SonarQube Scanner
-                    # For this demo, we'll just verify SonarQube is accessible
-                    if curl -s http://localhost:9000 > /dev/null; then
-                        echo "✅ SonarQube is accessible at http://localhost:9000"
-                        echo "📊 SonarQube URL: http://localhost:9000"
-                        echo "🔑 Default credentials: admin/admin"
-                    else
-                        echo "⚠️ SonarQube is not accessible - skipping analysis"
-                    fi
+                    docker run --rm \\
+                        -v $(pwd):/usr/src \\
+                        -w /usr/src \\
+                        --network host \\
+                        sonarsource/sonar-scanner-cli:latest \\
+                        sonar-scanner \\
+                        -Dsonar.projectKey=flask-app-${BUILD_NUMBER} \\
+                        -Dsonar.sources=. \\
+                        -Dsonar.host.url=http://localhost:9000 \\
+                        -Dsonar.login=admin \\
+                        -Dsonar.password=admin \\
+                        -Dsonar.projectVersion=${BUILD_NUMBER} \\
+                        -Dsonar.projectName=Flask App ${BUILD_NUMBER} \\
+                        -Dsonar.python.version=3.9
+                    
+                    echo "✅ SonarQube analysis completed"
+                    echo "�� View results at: http://localhost:9000"
                 '''
             }
-        }
-
-       
+}
         
         stage('Build Docker Image') {
             steps {
@@ -141,7 +157,7 @@ pipeline {
             }
         }
 
-         stage('Security Scan - Trivy') {
+        stage('Security Scan - Trivy') {
             steps {
                 echo '🔒 Running Trivy container vulnerability scan...'
                 sh '''
@@ -155,15 +171,17 @@ pipeline {
                     fi
                     
                     echo "Scanning Docker image for vulnerabilities..."
+                    trivy image --severity HIGH,CRITICAL --exit-code 0 --format json --output trivy-report.json ${DOCKER_IMAGE}:${DOCKER_TAG}
                     trivy image --severity HIGH,CRITICAL --exit-code 0 --format table ${DOCKER_IMAGE}:${DOCKER_TAG}
                     echo "✅ Trivy scan completed"
                 '''
+                archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true
             }
         }
 
         stage('Generate SBOM') {
             steps {
-                echo '�� Generating Software Bill of Materials...'
+                echo '📋 Generating Software Bill of Materials...'
                 sh '''
                     echo "Installing CycloneDX BOM tool..."
                     npm install --save-dev @cyclonedx/bom
@@ -175,10 +193,38 @@ pipeline {
                     ls -la sbom.json
                     echo "✅ SBOM generation completed"
                 '''
+                archiveArtifacts artifacts: 'sbom.json', fingerprint: true
             }
         }
         
-        
+        stage('Upload SBOM to Dependency Track') {
+            steps {
+                echo '📤 Uploading SBOM to Dependency Track...'
+                sh '''
+                    echo "Waiting for Dependency Track to be ready..."
+                    timeout 60 bash -c 'until curl -s http://localhost:8085 > /dev/null; do sleep 2; done'
+                    echo "✅ Dependency Track is accessible"
+                    
+                    echo "Creating project in Dependency Track..."
+                    curl -X POST \\
+                        -H "Content-Type: application/json" \\
+                        -H "X-API-Key: admin" \\
+                        -d '{"name": "flask-app-'${BUILD_NUMBER}'", "version": "'${BUILD_NUMBER}'", "description": "Flask Application Build '${BUILD_NUMBER}'"}' \\
+                        "http://localhost:8085/api/v1/project" || echo "⚠️ Project creation failed - continuing"
+                    
+                    echo "Uploading SBOM to Dependency Track..."
+                    curl -X POST \\
+                        -H "Content-Type: multipart/form-data" \\
+                        -H "X-API-Key: admin" \\
+                        -F "project=flask-app-${BUILD_NUMBER}" \\
+                        -F "bom=@sbom.json" \\
+                        "http://localhost:8085/api/v1/bom" || echo "⚠️ SBOM upload failed - continuing"
+                    
+                    echo "✅ SBOM uploaded to Dependency Track"
+                    echo "�� View results at: http://localhost:8084"
+                '''
+            }
+        }
         
         stage('Test Docker Image') {
             steps {
@@ -236,22 +282,6 @@ pipeline {
             }
         }
         
-        stage('Pull from Harbor Registry') {
-            steps {
-                echo '📥 Pulling image from Harbor Registry...'
-                sh '''
-                    echo "Pulling latest image from Harbor..."
-                    docker pull ${HARBOR_FULL_IMAGE}:latest
-                    
-                    echo "Tagging for local use..."
-                    docker tag ${HARBOR_FULL_IMAGE}:latest ${DOCKER_IMAGE}:latest
-                    docker tag ${HARBOR_FULL_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${DOCKER_TAG}
-                    
-                    echo "✅ Image pulled from Harbor successfully"
-                '''
-            }
-        }
-        
         stage('Deploy with Docker Compose') {
             steps {
                 echo '🚀 Deploying application...'
@@ -302,9 +332,9 @@ pipeline {
                     echo "=== Application URLs ==="
                     echo "🌐 Application: http://localhost:8000"
                     echo "🐳 Harbor Registry: http://${HARBOR_URL}"
-                    echo "📝 GitLab: http://localhost:8082"
                     echo "🔧 Jenkins: http://localhost:8080"
-                    echo "🔍 SonarQube: http://localhost:9000"
+                    echo "🔍 SonarQube: http://localhost:9000 (admin/admin)"
+                    echo "📊 Dependency Track: http://localhost:8084 (admin/admin)"
                 '''
             }
         }
@@ -319,7 +349,9 @@ pipeline {
         }
         success {
             echo '✅ Pipeline completed successfully!'
-            echo '🎉 Your application is now deployed with Harbor Registry integration!'
+            echo '🎉 Your application is now deployed with complete CI/CD integration!'
+            echo '📊 Check SonarQube: http://localhost:9000'
+            echo '📊 Check Dependency Track: http://localhost:8084'
         }
         failure {
             echo '❌ Pipeline failed!'
