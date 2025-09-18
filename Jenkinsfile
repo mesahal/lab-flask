@@ -126,6 +126,27 @@ pipeline {
                 '''
             }
         }
+
+        stage('Security Scan - Trivy') {
+            steps {
+                echo '🔒 Running Trivy container vulnerability scan...'
+                sh '''
+                    echo "Installing Trivy if not available..."
+                    if ! command -v trivy &> /dev/null; then
+                        echo "Downloading Trivy..."
+                        wget -q https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_Linux-64bit.tar.gz
+                        tar -xzf trivy_0.50.0_Linux-64bit.tar.gz
+                        chmod +x trivy
+                        export PATH="$(pwd):$PATH"
+                    fi
+                    
+                    echo "Scanning Docker image for vulnerabilities..."
+                    trivy image --severity HIGH,CRITICAL --exit-code 0 --format table ${DOCKER_IMAGE}:${DOCKER_TAG}
+                    echo "✅ Trivy scan completed"
+                '''
+            }
+        }
+        
         
         stage('Build Docker Image') {
             steps {
