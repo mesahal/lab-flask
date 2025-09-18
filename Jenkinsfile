@@ -160,6 +160,24 @@ pipeline {
                 '''
             }
         }
+
+        stage('Generate SBOM') {
+            steps {
+                echo '�� Generating Software Bill of Materials...'
+                sh '''
+                    echo "Installing CycloneDX BOM tool..."
+                    npm install --save-dev @cyclonedx/bom
+                    
+                    echo "Generating SBOM..."
+                    npx cyclonedx-bom -o sbom.json
+                    
+                    echo "SBOM generated successfully:"
+                    ls -la sbom.json
+                    echo "✅ SBOM generation completed"
+                '''
+            }
+        }
+        
         
         
         stage('Test Docker Image') {
