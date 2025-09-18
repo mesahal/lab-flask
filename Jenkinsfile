@@ -1,10 +1,17 @@
-// Simplified Jenkinsfile without Harbor Registry
+// Jenkinsfile with Harbor Registry Integration
 pipeline {
     agent any
     
     environment {
+        // Harbor Registry Configuration
+        HARBOR_URL = 'localhost:9080'
+        HARBOR_PROJECT = 'library'
+        HARBOR_IMAGE = 'flask-app'
+        HARBOR_USERNAME = 'admin'
+        HARBOR_PASSWORD = 'Harbor12345'
         DOCKER_IMAGE = 'flask-app'
         DOCKER_TAG = "${BUILD_NUMBER}"
+        HARBOR_FULL_IMAGE = "${HARBOR_URL}/${HARBOR_PROJECT}/${HARBOR_IMAGE}"
     }
     
     stages {
@@ -115,6 +122,54 @@ pipeline {
             }
         }
         
+        stage('Login to Harbor Registry') {
+            steps {
+                echo '🔐 Logging into Harbor Registry...'
+                sh '''
+                    echo "Logging into Harbor at ${HARBOR_URL}..."
+                    echo "${HARBOR_PASSWORD}" | docker login ${HARBOR_URL} -u ${HARBOR_USERNAME} --password-stdin
+                    echo "✅ Successfully logged into Harbor"
+                '''
+            }
+        }
+        
+        stage('Push to Harbor Registry') {
+            steps {
+                echo '📤 Pushing image to Harbor Registry...'
+                sh '''
+                    echo "Tagging image for Harbor..."
+                    docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${HARBOR_FULL_IMAGE}:${DOCKER_TAG}
+                    docker tag ${DOCKER_IMAGE}:latest ${HARBOR_FULL_IMAGE}:latest
+                    
+                    echo "Pushing image: ${HARBOR_FULL_IMAGE}:${DOCKER_TAG}"
+                    docker push ${HARBOR_FULL_IMAGE}:${DOCKER_TAG}
+                    docker push ${HARBOR_FULL_IMAGE}:latest
+                    echo "✅ Image pushed to Harbor successfully"
+                    
+                    echo "Harbor Registry URL: http://${HARBOR_URL}"
+                    echo "Project: ${HARBOR_PROJECT}"
+                    echo "Image: ${HARBOR_IMAGE}"
+                    echo "Tags: ${DOCKER_TAG}, latest"
+                '''
+            }
+        }
+        
+        stage('Pull from Harbor Registry') {
+            steps {
+                echo '📥 Pulling image from Harbor Registry...'
+                sh '''
+                    echo "Pulling latest image from Harbor..."
+                    docker pull ${HARBOR_FULL_IMAGE}:latest
+                    
+                    echo "Tagging for local use..."
+                    docker tag ${HARBOR_FULL_IMAGE}:latest ${DOCKER_IMAGE}:latest
+                    docker tag ${HARBOR_FULL_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${DOCKER_TAG}
+                    
+                    echo "✅ Image pulled from Harbor successfully"
+                '''
+            }
+        }
+        
         stage('Deploy with Docker Compose') {
             steps {
                 echo '🚀 Deploying application...'
@@ -158,10 +213,15 @@ pipeline {
                     docker images | grep flask-app
                     
                     echo ""
+                    echo "=== Harbor Registry Images ==="
+                    docker images | grep ${HARBOR_FULL_IMAGE} || echo "No Harbor images found locally"
+                    
+                    echo ""
                     echo "=== Application URLs ==="
                     echo "🌐 Application: http://localhost:8000"
-                    echo "🔧 Jenkins: http://localhost:8080"
+                    echo "🐳 Harbor Registry: http://${HARBOR_URL}"
                     echo "📝 GitLab: http://localhost:8082"
+                    echo "🔧 Jenkins: http://localhost:8080"
                 '''
             }
         }
@@ -176,7 +236,7 @@ pipeline {
         }
         success {
             echo '✅ Pipeline completed successfully!'
-            echo '🎉 Your application is now deployed!'
+            echo '🎉 Your application is now deployed with Harbor Registry integration!'
         }
         failure {
             echo '❌ Pipeline failed!'
