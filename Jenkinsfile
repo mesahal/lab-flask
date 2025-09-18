@@ -19,7 +19,7 @@ pipeline {
         
         // Dependency Track Configuration
         DEPENDENCY_TRACK_URL = 'http://localhost:8085'
-        DEPENDENCY_TRACK_API_KEY = 'your-api-key-here' // You'll need to generate this
+        DEPENDENCY_TRACK_API_KEY = 'admin' // Using admin for now - replace with real API key
     }
     
     stages {
@@ -208,14 +208,14 @@ pipeline {
                     echo "Creating project in Dependency Track..."
                     curl -X POST \\
                         -H "Content-Type: application/json" \\
-                        -H "X-API-Key: admin" \\
+                        -u admin:admin \\
                         -d '{"name": "flask-app-'${BUILD_NUMBER}'", "version": "'${BUILD_NUMBER}'", "description": "Flask Application Build '${BUILD_NUMBER}'"}' \\
                         "http://localhost:8085/api/v1/project" || echo "⚠️ Project creation failed - continuing"
                     
                     echo "Uploading SBOM to Dependency Track..."
                     curl -X POST \\
                         -H "Content-Type: multipart/form-data" \\
-                        -H "X-API-Key: admin" \\
+                        -u admin:admin \\
                         -F "project=flask-app-${BUILD_NUMBER}" \\
                         -F "bom=@sbom.json" \\
                         "http://localhost:8085/api/v1/bom" || echo "⚠️ SBOM upload failed - continuing"
