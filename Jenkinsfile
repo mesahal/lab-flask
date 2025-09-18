@@ -127,7 +127,21 @@ pipeline {
             }
         }
 
-        stage('Security Scan - Trivy') {
+       
+        
+        stage('Build Docker Image') {
+            steps {
+                echo '🐳 Building Docker image...'
+                sh '''
+                    echo "Building image: ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    docker build -t ${DOCKER_IMAGE}:latest .
+                    echo "✅ Docker image built successfully"
+                '''
+            }
+        }
+
+         stage('Security Scan - Trivy') {
             steps {
                 echo '🔒 Running Trivy container vulnerability scan...'
                 sh '''
@@ -147,18 +161,6 @@ pipeline {
             }
         }
         
-        
-        stage('Build Docker Image') {
-            steps {
-                echo '🐳 Building Docker image...'
-                sh '''
-                    echo "Building image: ${DOCKER_IMAGE}:${DOCKER_TAG}"
-                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                    docker build -t ${DOCKER_IMAGE}:latest .
-                    echo "✅ Docker image built successfully"
-                '''
-            }
-        }
         
         stage('Test Docker Image') {
             steps {
