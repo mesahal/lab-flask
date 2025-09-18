@@ -205,22 +205,32 @@ pipeline {
                     timeout 60 bash -c 'until curl -s http://localhost:8085 > /dev/null; do sleep 2; done'
                     echo "✅ Dependency Track is accessible"
                     
-                    echo "Creating project in Dependency Track..."
-                    curl -X POST \\
-                        -H "Content-Type: application/json" \\
-                        -H "X-API-Key: ${DEPENDENCY_TRACK_API_KEY}" \\
-                        -d '{"name": "flask-app-'${BUILD_NUMBER}'", "version": "'${BUILD_NUMBER}'", "description": "Flask Application Build '${BUILD_NUMBER}'"}' \\
-                        "http://localhost:8085/api/v1/project" || echo "⚠️ Project creation failed - continuing"
+                    echo "Getting existing project UUID..."
+                    PROJECT_UUID=$(curl -s -H "X-API-Key: ${DEPENDENCY_TRACK_API_KEY}" http://localhost:8085/api/v1/project | jq -r '.[0].uuid')
                     
-                    echo "Uploading SBOM to Dependency Track..."
-                    curl -X POST \\
-                        -H "Content-Type: multipart/form-data" \\
-                        -H "X-API-Key: ${DEPENDENCY_TRACK_API_KEY}" \\
-                        -F "project=flask-app-${BUILD_NUMBER}" \\
-                        -F "bom=@sbom.json" \\
-                        "http://localhost:8085/api/v1/bom" || echo "⚠️ SBOM upload failed - continuing"
+                    if [ "$PROJECT_UUID" != "null" ] && [ -n "$PROJECT_UUID" ]; then
+                        echo "✅ Found existing project UUID: $PROJECT_UUID"
+                        
+                        echo "Uploading SBOM to existing project..."
+                        UPLOAD_RESPONSE=$(curl -s -X POST \\
+                            -H "Content-Type: multipart/form-data" \\
+                            -H "X-API-Key: ${DEPENDENCY_TRACK_API_KEY}" \\
+                            -F "project=$PROJECT_UUID" \\
+                            -F "bom=@sbom.json" \\
+                            "http://localhost:8085/api/v1/bom")
+                        
+                        if echo "$UPLOAD_RESPONSE" | grep -q "token"; then
+                            echo "✅ SBOM uploaded successfully to Dependency Track"
+                            echo "📊 View results at: http://localhost:8084"
+                        else
+                            echo "⚠️ SBOM upload failed: $UPLOAD_RESPONSE"
+                        fi
+                    else
+                        echo "⚠️ No existing project found - creating new project manually"
+                        echo "Please create a project manually in Dependency Track UI at http://localhost:8084"
+                        echo "Then run this pipeline again to upload the SBOM"
+                    fi
                     
-                    echo "✅ SBOM uploaded to Dependency Track"
                     echo "�� View results at: http://localhost:8084"
                 '''
             }

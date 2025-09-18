@@ -1,3 +1,4 @@
 gitleaks-report*.json
 node_modules/
 .git/
+
