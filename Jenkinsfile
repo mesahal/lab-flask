@@ -15,7 +15,7 @@ pipeline {
         
         // SonarQube Configuration
         SONARQUBE_URL = 'http://localhost:9000'
-        // SONARQUBE_TOKEN = 'your-token-here' // Generate from SonarQube UI
+        SONARQUBE_TOKEN = 'squ_a61555dc0912cef0687cbf51d7cdefbde9af67f3'
         
         // Dependency Track Configuration
         DEPENDENCY_TRACK_URL = 'http://localhost:8085'
@@ -133,11 +133,10 @@ pipeline {
                         -Dsonar.projectKey=flask-app-${BUILD_NUMBER} \\
                         -Dsonar.sources=. \\
                         -Dsonar.host.url=http://localhost:9000 \\
-                        -Dsonar.login=admin \\
-                        -Dsonar.password=admin123 \\
+                        -Dsonar.login=${SONARQUBE_TOKEN} \\
                         -Dsonar.projectVersion=${BUILD_NUMBER} \\
                         -Dsonar.projectName=FlaskApp-${BUILD_NUMBER} \\
-                        -Dsonar.python.version=3.9 || echo "⚠️ SonarQube analysis failed - continuing pipeline"
+                        -Dsonar.python.version=3.9
                     
                     echo "✅ SonarQube analysis completed"
                     echo "�� View results at: http://localhost:9000"
