@@ -15,7 +15,7 @@ pipeline {
         
         // SonarQube Configuration
         SONARQUBE_URL = 'http://localhost:9000'
-        SONARQUBE_TOKEN = 'squ_1234567890abcdef1234567890abcdef12345678' // You'll need to generate this
+        // SONARQUBE_TOKEN = 'your-token-here' // Generate from SonarQube UI
         
         // Dependency Track Configuration
         DEPENDENCY_TRACK_URL = 'http://localhost:8085'
@@ -136,7 +136,7 @@ pipeline {
                         -Dsonar.login=admin \\
                         -Dsonar.password=admin \\
                         -Dsonar.projectVersion=${BUILD_NUMBER} \\
-                        -Dsonar.projectName=Flask App ${BUILD_NUMBER} \\
+                        -Dsonar.projectName=FlaskApp-${BUILD_NUMBER} \\
                         -Dsonar.python.version=3.9
                     
                     echo "✅ SonarQube analysis completed"
