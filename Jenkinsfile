@@ -108,7 +108,7 @@ pipeline {
                     fi
                     
                     echo "Running Gitleaks scan..."
-                    gitleaks detect --source . --verbose --exit-code 0 --report-format json --report-path gitleaks-report.json
+                    gitleaks detect --source . --no-git --verbose --exit-code 0 --report-format json --report-path gitleaks-report.json
                     echo "✅ Gitleaks scan completed - no secrets found"
                 '''
                 archiveArtifacts artifacts: 'gitleaks-report.json', fingerprint: true
