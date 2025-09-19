@@ -8,18 +8,18 @@ pipeline {
         HARBOR_PROJECT = 'library'
         HARBOR_IMAGE = 'flask-app'
         HARBOR_USERNAME = 'admin'
-        HARBOR_PASSWORD = 'Harbor12345'
+        HARBOR_PASSWORD = credentials('harbor-password')
         DOCKER_IMAGE = 'flask-app'
         DOCKER_TAG = "${BUILD_NUMBER}"
         HARBOR_FULL_IMAGE = "${HARBOR_URL}/${HARBOR_PROJECT}/${HARBOR_IMAGE}"
         
         // SonarQube Configuration
         SONARQUBE_URL = 'http://localhost:9000'
-        SONARQUBE_TOKEN = 'squ_a61555dc0912cef0687cbf51d7cdefbde9af67f3'
+        SONARQUBE_TOKEN = credentials('sonarqube-token')
         
         // Dependency Track Configuration
         DEPENDENCY_TRACK_URL = 'http://localhost:8085'
-        DEPENDENCY_TRACK_API_KEY = 'odt_HEX5pAmS_ZT8Q4UTE42k5Orq4UpgxLzbtXwuLAEWt'
+        DEPENDENCY_TRACK_API_KEY = credentials('dependency-track-api-key')
     }
     
     stages {
